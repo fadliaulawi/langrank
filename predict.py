@@ -34,7 +34,7 @@ if params.seg is not None:
 print("read lines")
 prepared = lr.prepare_new_dataset(params.lang, dataset_source=lines, dataset_subword_source=bpelines)
 print("prepared")
-print(prepared)
+#print(prepared)
 #raise Exception()
 candidates = "all" if params.candidates == "all" else params.candidates.split(";")
 task = params.task

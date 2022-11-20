@@ -326,13 +326,15 @@ def rank(test_dataset_features, task="MT", candidates="all", model="best", print
 		candidate_list = get_candidates(task, candidates)
 
 	print("Collecting URIEL distance vectors...")
-	print([c[0] for c in candidate_list])
-	raise Exception()
+	#print([c[0] for c in candidate_list])
+	#raise Exception()
 
 	languages = [test_dataset_features["lang"]] + [c[1]["lang"] for c in candidate_list]
 	# TODO: This takes forever...
 	uriel = uriel_distance_vec(languages)
-
+	#print(languages)
+	#print([u[0] for u in uriel[5]])
+	#raise Exception()
 
 	print("Collecting dataset distance vectors...")
 	test_inputs = []
@@ -344,6 +346,9 @@ def rank(test_dataset_features, task="MT", candidates="all", model="best", print
 		distance_vector = distance_vec(test_dataset_features, cand_dict, uriel_j, task)
 		test_inputs.append(distance_vector)
 
+	#print(test_inputs[0])
+	#raise Exception()
+
 	# load model
 	print("Loading model...")
 	model_dict = map_task_to_models(task) # this loads the dict that will give us the name of the pretrained model
@@ -352,15 +357,17 @@ def rank(test_dataset_features, task="MT", candidates="all", model="best", print
 
 	# rank
 	bst = lgb.Booster(model_file=modelfilename)
-	
+
 	print("predicting...")
 	predict_contribs = bst.predict(test_inputs, pred_contrib=True)
 	predict_scores = predict_contribs.sum(-1)
-	
+	print(len(test_inputs), len(test_inputs[0]))
+	print(type(predict_contribs), predict_contribs.shape)
+	print(predict_scores.shape)
 
 	print("Ranking with single features:")
 	TOP_K=min(3, len(candidate_list))
-	
+
 	# 0 means we ignore this feature (don't compute single-feature result of it)
 	if task == "MT":
 		sort_sign_list = [-1, -1, -1, 0, -1, 0, 0, 1, 1, 1, 1, 1, 1, 1]
@@ -380,23 +387,26 @@ def rank(test_dataset_features, task="MT", candidates="all", model="best", print
 						"Transfer over target size ratio", "GENETIC", "SYNTACTIC", "FEATURAL", "PHONOLOGICAL", 
 						"INVENTORY", "GEOGRAPHIC"]
 
+	print('cl', [c[0] for c in candidate_list])
 	test_inputs = np.array(test_inputs)
 	for j in range(len(feature_name)):
 		if sort_sign_list[j] != 0:
 			print(feature_name[j])
 			values = test_inputs[:, j] * sort_sign_list[j]
+			#print('val', values)
 			best_feat_index = np.argsort(values)
+			#print(best_feat_index)
 			for i in range(TOP_K):
 				index = best_feat_index[i]
-				print("%d. %s : score=%.2f" % (i, candidate_list[index][0], test_inputs[index][j]))
+				print("%d. %s : score=%.4f" % (i, candidate_list[index][0], test_inputs[index][j]))
 
 	ind = list(np.argsort(-predict_scores))
 	print("Ranking (top {}):".format(print_topK))
 	for j,i in enumerate(ind[:print_topK]):
-		print("%d. %s : score=%.2f" % (j+1, candidate_list[i][0], predict_scores[i]))
+		print("%d. %s : score=%.4f" % (j+1, candidate_list[i][0], predict_scores[i]))
 		contrib_scores = predict_contribs[i][:-1]
 		contrib_ind = list(np.argsort(contrib_scores))[::-1]
-		print("\t1. %s : score=%.2f; \n\t2. %s : score=%.2f; \n\t3. %s : score=%.2f" % 
+		print("\t1. %s : score=%.4f; \n\t2. %s : score=%.4f; \n\t3. %s : score=%.4f" %
 			  (feature_name[contrib_ind[0]], contrib_scores[contrib_ind[0]],
 			   feature_name[contrib_ind[1]], contrib_scores[contrib_ind[1]],
 			   feature_name[contrib_ind[2]], contrib_scores[contrib_ind[2]]))
