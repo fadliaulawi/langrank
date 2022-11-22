@@ -37,7 +37,11 @@ print("prepared")
 #print(prepared)
 #raise Exception()
 candidates = "all" if params.candidates == "all" else params.candidates.split(";")
+
+# temp
+candidates = ['ind', 'jav', 'fra', 'eng', 'spa', 'jpn']
+
 task = params.task
-lr.rank(prepared, task=task, candidates=candidates, print_topK=params.num, model=params.model)
+lr.rank(prepared, task='DEP', candidates=candidates, print_topK=params.num, model=params.model)
 print("ranked")
 

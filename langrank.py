@@ -12,7 +12,7 @@ MT_DATASETS = {
 	"ted" : "ted.npy",
 }
 POS_DATASETS = {
-	"ud" : "ud.npy" 
+	"ud" : "ud.npy"
 }
 EL_DATASETS = {
 	"wiki" : "wiki.npy"
@@ -265,7 +265,10 @@ def prepare_train_file(datasets, langs, rank, segmented_datasets=None, task="MT"
 	if not isinstance(rank, np.ndarray):
 		rank = np.array(rank)
 	BLEU_level = -rank + len(langs)
+	print('BLEU_level', BLEU_level)
 	rel_BLEU_level = lgbm_rel_exp(BLEU_level, REL_EXP_CUTOFF)
+	print('rel', rel_BLEU_level)
+	#raise Exception()
 
 	features = {}
 	for i, (ds, lang) in enumerate(zip(datasets, langs)):
@@ -310,12 +313,13 @@ def train(tmp_dir, output_model):
 	model.fit(X_train, y_train, group=np.loadtxt(train_size))
 	model.booster_.save_model(output_model)
 
-def rank(test_dataset_features, task="MT", candidates="all", model="best", print_topK=3):
+def rank(test_dataset_features, task="DEP", candidates="all", model="best", print_topK=3):
 	'''
 	test_dataset_features : the output of prepare_new_dataset(). Basically a dictionary with the necessary dataset features.
 	'''
 	# Checks
-	check_task_model(task, model)
+	if '.pt' not in model:
+		check_task_model(task, model)
 
 	# Get candidates to be compared against
 	print("Preparing candidate list...")
@@ -327,6 +331,7 @@ def rank(test_dataset_features, task="MT", candidates="all", model="best", print
 
 	print("Collecting URIEL distance vectors...")
 	#print([c[0] for c in candidate_list])
+	#print(candidate_list[0][0], candidate_list[0][1]['dataset_size'], candidate_list[0][1]['word_vocab'])
 	#raise Exception()
 
 	languages = [test_dataset_features["lang"]] + [c[1]["lang"] for c in candidate_list]
@@ -351,9 +356,11 @@ def rank(test_dataset_features, task="MT", candidates="all", model="best", print
 
 	# load model
 	print("Loading model...")
-	model_dict = map_task_to_models(task) # this loads the dict that will give us the name of the pretrained model
-	model_fname = model_dict[model] # this gives us the filename (needs to be joined, see below)
-	modelfilename = pkg_resources.resource_filename(__name__, os.path.join('pretrained', task, model_fname))
+	modelfilename = model
+	if '.pt' not in model:
+		model_dict = map_task_to_models(task) # this loads the dict that will give us the name of the pretrained model
+		model_fname = model_dict[model] # this gives us the filename (needs to be joined, see below)
+		modelfilename = pkg_resources.resource_filename(__name__, os.path.join('pretrained', task, model_fname))
 
 	# rank
 	bst = lgb.Booster(model_file=modelfilename)
