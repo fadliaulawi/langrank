@@ -1,0 +1,17 @@
+Pada Proyek Akhir Tahap I dan II Anda sudah berhasil menjalankan program yang dibuat oleh peneliti ad
+dari paper acuan Anda. Sejauh ini Anda menganggapnya sebagai kotak hitam yang diberi input dalam
+format X dan menghasilkan output dalam format Y. Pada Tahap IV ini Anda diminta untuk mencari tahu
+transformasi apa saja yang terjadi terhadap input sehingga menjadi output tersebut.
+
+Berikut ini adalah hal-hal yang sebaiknya Anda kerjakan pada Tahap IV Proyek Akhir NLP.
+1.1. Buat versi mini dari dataset. Tidak ada acuan batas minimal atau maksimal dataset yang harus
+Anda gunakan. Selama jumlah tersebut mencukupi untuk memperlihatkan transformasi data input menjadi output, maka diperbolehkan.
+1.2. Cetak output dari baris-baris program. Agar Anda bisa mengetahui apa yang terjadi terhadap
+input, Anda perlu mencetak output dari baris program atau variabel-variabel tertentu. Tidak ada batasan
+mengenai serinci apa input-output yang diharapkan. Semakin banyak yang bisa Anda uraikan semakin
+baik.
+Contoh transformasi yang mungkin bisa Anda tunjukkan:
+• input-output tokenisasi
+• input-output mengubah kata menjadi numerik
+• input-output mengubah id kata menjadi representasi word embedding
+Untuk setiap input-output tersebut harus disertakan screenshot perintah prog

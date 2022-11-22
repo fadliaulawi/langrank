@@ -210,14 +210,14 @@ def uriel_distance_vec(languages):
 	phonological = l2v.phonological_distance(languages)
 	print('...featural')
 	featural = l2v.featural_distance(languages)
-	uriel_features = [genetic, syntactic, featural, phonological, inventory, geographic]
+	uriel_features = np.array([genetic, syntactic, featural, phonological, inventory, geographic])
 	return uriel_features
 
 
 
 def distance_vec(test, transfer, uriel_features, task):
 	output = []
-	# Dataset specific 
+	# Dataset specific
 	# Dataset Size
 	transfer_dataset_size = transfer["dataset_size"]
 	task_data_size = test.get("dataset_size", 1)
@@ -243,6 +243,8 @@ def distance_vec(test, transfer, uriel_features, task):
 	elif task == "EL":
 		data_specific_features = [word_overlap, transfer_dataset_size, task_data_size, ratio_dataset_size]
 
+	print(np.array(data_specific_features))
+
 	return np.array(data_specific_features + uriel_features)
 
 def lgbm_rel_exp(BLEU_level, cutoff):
@@ -260,14 +262,15 @@ def prepare_train_file(datasets, langs, rank, segmented_datasets=None, task="MT"
 	rank: [[0, 1, 2], [1, 0, 2], [1, 2, 0]]
 	"""
 	num_langs = len(langs)
-	REL_EXP_CUTOFF = num_langs - 1 - 9
+	REL_EXP_CUTOFF = num_langs - 9
 
 	if not isinstance(rank, np.ndarray):
 		rank = np.array(rank)
 	BLEU_level = -rank + len(langs)
-	print('BLEU_level', BLEU_level)
+	#print('BLEU_level', BLEU_level, REL_EXP_CUTOFF)
 	rel_BLEU_level = lgbm_rel_exp(BLEU_level, REL_EXP_CUTOFF)
-	print('rel', rel_BLEU_level)
+	#print('bobot')
+	#print(rel_BLEU_level)
 	#raise Exception()
 
 	features = {}
@@ -280,7 +283,16 @@ def prepare_train_file(datasets, langs, rank, segmented_datasets=None, task="MT"
 			with open(sds, "r") as sds_f:
 				seg_lines = sds_f.readlines()
 		features[lang] = prepare_new_dataset(lang=lang, dataset_source=lines, dataset_subword_source=seg_lines)
+		#del features[lang]['word_vocab']
+		#del features[lang]['subword_vocab']
+		#print(features[lang])
+		#print(features[lang].keys())
+		#raise Exception()
+
+	#print(features['jpn'])
 	uriel = uriel_distance_vec(langs)
+	#print(uriel)
+	#raise Exception()
 
 	if not os.path.exists(tmp_dir):
 		os.mkdir(tmp_dir)
@@ -289,15 +301,21 @@ def prepare_train_file(datasets, langs, rank, segmented_datasets=None, task="MT"
 	train_file_f = open(train_file, "w")
 	train_size = os.path.join(tmp_dir, "train_mt_size.csv")
 	train_size_f = open(train_size, "w")
+	distance_list = []
 	for i, lang1 in enumerate(langs):
 		for j, lang2 in enumerate(langs):
 			if i != j:
 				uriel_features = [u[i, j] for u in uriel]
 				distance_vector = distance_vec(features[lang1], features[lang2], uriel_features, task)
+				distance_list.append(distance_vector.copy())
 				distance_vector = ["{}:{}".format(i, d) for i, d in enumerate(distance_vector)]
 				line = " ".join([str(rel_BLEU_level[i, j])] + distance_vector)
 				train_file_f.write(line + "\n")
 		train_size_f.write("{}\n".format(num_langs-1))
+
+	distance_list = np.array(distance_list)
+	#print(distance_list)
+
 	train_file_f.close()
 	train_size_f.close()
 	print("Dump train file to {} ...".format(train_file_f))
@@ -307,6 +325,11 @@ def train(tmp_dir, output_model):
 	train_file = os.path.join(tmp_dir, "train_mt.csv")
 	train_size = os.path.join(tmp_dir, "train_mt_size.csv")
 	X_train, y_train = load_svmlight_file(train_file)
+	print('X_train', type(X_train))
+	print(X_train)
+	print('y_train', type(y_train))
+	print(y_train)
+	raise Exception()
 	model = lgb.LGBMRanker(boosting_type='gbdt', num_leaves=16,
 						   max_depth=-1, learning_rate=0.1, n_estimators=100,
 						   min_child_samples=5)
@@ -330,7 +353,7 @@ def rank(test_dataset_features, task="DEP", candidates="all", model="best", prin
 		candidate_list = get_candidates(task, candidates)
 
 	print("Collecting URIEL distance vectors...")
-	#print([c[0] for c in candidate_list])
+	print([c[0] for c in candidate_list])
 	#print(candidate_list[0][0], candidate_list[0][1]['dataset_size'], candidate_list[0][1]['word_vocab'])
 	#raise Exception()
 
@@ -368,33 +391,34 @@ def rank(test_dataset_features, task="DEP", candidates="all", model="best", prin
 	print("predicting...")
 	predict_contribs = bst.predict(test_inputs, pred_contrib=True)
 	predict_scores = predict_contribs.sum(-1)
-	print(len(test_inputs), len(test_inputs[0]))
-	print(type(predict_contribs), predict_contribs.shape)
-	print(predict_scores.shape)
+	#print(len(test_inputs), len(test_inputs[0]))
+	#print(predict_contribs.shape, predict_contribs)
+	print('predict_scores')
+	print([c[1]['lang'] for c in candidate_list])
+	print(predict_scores)
 
 	print("Ranking with single features:")
 	TOP_K=min(3, len(candidate_list))
 
 	# 0 means we ignore this feature (don't compute single-feature result of it)
 	if task == "MT":
-		sort_sign_list = [-1, -1, -1, 0, -1, 0, 0, 1, 1, 1, 1, 1, 1, 1]
+		sort_sign_list = [-1, -1, 0, 0, -1, 0, 0, -1, 1, 1, 1, 1, 1, 1]
 		feature_name = ["Overlap word-level", "Overlap subword-level", "Transfer lang dataset size",
 					"Target lang dataset size", "Transfer over target size ratio", "Transfer lang TTR",
 					"Target lang TTR", "Transfer target TTR distance", "GENETIC", 
 					"SYNTACTIC", "FEATURAL", "PHONOLOGICAL", "INVENTORY", "GEOGRAPHIC"] 
 	elif task == "POS" or task == "DEP":
-		sort_sign_list = [-1, 0, -1, 0, -1, 0, 0, 1, 1, 1, 1, 1, 1]
+		sort_sign_list = [-1, 0, 0, -1, 0, 0, -1, 1, 1, 1, 1, 1, 1]
 		feature_name = ["Overlap word-level", "Transfer lang dataset size", "Target lang dataset size", 
 						"Transfer over target size ratio", "Transfer lang TTR", "Target lang TTR", 
 						"Transfer target TTR distance", "GENETIC", "SYNTACTIC", "FEATURAL", 
 						"PHONOLOGICAL", "INVENTORY", "GEOGRAPHIC"]
 	elif task == "EL":
-		sort_sign_list = [-1, -1, 0, -1, 1, 1, 1, 1, 1, 1]
+		sort_sign_list = [-1, 0, 0, -1, 1, 1, 1, 1, 1, 1]
 		feature_name = ["Entity overlap", "Transfer lang dataset size", "Target lang dataset size", 
 						"Transfer over target size ratio", "GENETIC", "SYNTACTIC", "FEATURAL", "PHONOLOGICAL", 
 						"INVENTORY", "GEOGRAPHIC"]
 
-	print('cl', [c[0] for c in candidate_list])
 	test_inputs = np.array(test_inputs)
 	for j in range(len(feature_name)):
 		if sort_sign_list[j] != 0:
@@ -408,6 +432,7 @@ def rank(test_dataset_features, task="DEP", candidates="all", model="best", prin
 				print("%d. %s : score=%.4f" % (i, candidate_list[index][0], test_inputs[index][j]))
 
 	ind = list(np.argsort(-predict_scores))
+	print('ind', ind)
 	print("Ranking (top {}):".format(print_topK))
 	for j,i in enumerate(ind[:print_topK]):
 		print("%d. %s : score=%.4f" % (j+1, candidate_list[i][0], predict_scores[i]))

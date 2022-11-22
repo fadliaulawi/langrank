@@ -13,7 +13,7 @@ parser.add_argument('-c', '--candidates', type=str, default="all",
 											   "use *abc to exclude language abc")
 parser.add_argument('-t', '--task', type=str, default="MT", choices=["MT", "POS", "EL", "DEP"], help="The task of interested. Current options support 'MT': machine translation,"
 										  	   "'DEP': Dependency Parsing, 'POS': POS-tagging, and 'EL': Entity Linking")
-parser.add_argument('-m', '--model', type=str, default="best", help="model to be used for prediction")
+parser.add_argument('-m', '--model', type=str, default="test.pt", help="model to be used for prediction")
 
 params = parser.parse_args()
 
